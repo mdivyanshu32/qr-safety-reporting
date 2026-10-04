@@ -20,10 +20,8 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     List<Report> findAllByOrderByCreatedAtDesc();
 
-    @Query("SELECT COUNT(r) FROM Report r WHERE r.type = :type")
     long countByType(String type);
 
-    @Query("SELECT COUNT(r) FROM Report r WHERE r.status = :status")
     long countByStatus(String status);
 
 }
