@@ -3,7 +3,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import type { ReportSubmissionPayload } from '../../types/safety';
 import { CameraIdUploader } from './CameraIdUploader';
 import { EvidencePhotoPicker } from './EvidencePhotoPicker';
-import { Flame, ArrowLeft, Send, Forward } from 'lucide-react';
+import { Flame, ArrowLeft, Send } from 'lucide-react';
 
 interface IncidentReportFormProps {
   initialLocation?: string;
