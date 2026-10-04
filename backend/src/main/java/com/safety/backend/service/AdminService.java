@@ -1,0 +1,156 @@
+package com.safety.backend.service;
+
+import com.safety.backend.dto.AdminLoginRequest;
+import com.safety.backend.dto.AdminLoginResponse;
+import com.safety.backend.dto.CorrectiveActionRequest;
+import com.safety.backend.dto.DashboardStatsDTO;
+import com.safety.backend.model.AdminUser;
+import com.safety.backend.model.CorrectiveAction;
+import com.safety.backend.model.Report;
+import com.safety.backend.repository.AdminUserRepository;
+import com.safety.backend.repository.CorrectiveActionRepository;
+import com.safety.backend.repository.ReportRepository;
+import com.safety.backend.repository.SystemSettingRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.*;
+
+@Service
+public class AdminService {
+
+    private final AdminUserRepository adminUserRepository;
+    private final ReportRepository reportRepository;
+    private final CorrectiveActionRepository correctiveActionRepository;
+    private final SystemSettingRepository systemSettingRepository;
+    private final AdminTokenService adminTokenService;
+
+    @Value("${app.admin.pin:8888}")
+    private String configuredPin;
+
+    @Value("${app.admin.default-username:admin}")
+    private String configuredUsername;
+
+    @Value("${app.admin.default-password:admin123}")
+    private String configuredPassword;
+
+    @Autowired
+    public AdminService(AdminUserRepository adminUserRepository,
+                        ReportRepository reportRepository,
+                        CorrectiveActionRepository correctiveActionRepository,
+                        SystemSettingRepository systemSettingRepository,
+                        AdminTokenService adminTokenService) {
+        this.adminUserRepository = adminUserRepository;
+        this.reportRepository = reportRepository;
+        this.correctiveActionRepository = correctiveActionRepository;
+        this.systemSettingRepository = systemSettingRepository;
+        this.adminTokenService = adminTokenService;
+    }
+
+    public AdminLoginResponse authenticateAdmin(AdminLoginRequest request) {
+        if (request.getPin() != null && !request.getPin().isBlank()) {
+            Optional<AdminUser> pinUser = adminUserRepository.findByPin(request.getPin());
+            if (pinUser.isPresent()) {
+                AdminUser u = pinUser.get();
+                return new AdminLoginResponse(true, u.getUsername(), u.getRole(), adminTokenService.issueToken(u.getId()));
+            }
+            if (request.getPin().equals(configuredPin)) {
+                return new AdminLoginResponse(true, configuredUsername, "ADMIN", adminTokenService.issueToken(0L));
+            }
+        }
+
+        if (request.getUsername() != null && request.getPassword() != null) {
+            Optional<AdminUser> userOpt = adminUserRepository.findByUsername(request.getUsername());
+            if (userOpt.isPresent() && request.getPassword().equals(userOpt.get().getPasswordHash())) {
+                AdminUser u = userOpt.get();
+                return new AdminLoginResponse(true, u.getUsername(), u.getRole(), adminTokenService.issueToken(u.getId()));
+            }
+            if (configuredUsername.equals(request.getUsername()) && configuredPassword.equals(request.getPassword())) {
+                return new AdminLoginResponse(true, configuredUsername, "ADMIN", adminTokenService.issueToken(0L));
+            }
+        }
+
+        return new AdminLoginResponse(false, null, null, null);
+    }
+
+    public DashboardStatsDTO getDashboardStats() {
+        DashboardStatsDTO stats = new DashboardStatsDTO();
+        List<Report> all = reportRepository.findAll();
+
+        stats.setTotalReports(all.size());
+        stats.setNearMissCount(all.stream().filter(r -> "NEAR_MISS".equalsIgnoreCase(r.getType())).count());
+        stats.setIncidentCount(all.stream().filter(r -> "INCIDENT".equalsIgnoreCase(r.getType())).count());
+        stats.setAccidentCount(all.stream().filter(r -> "ACCIDENT".equalsIgnoreCase(r.getType())).count());
+        stats.setPpeCount(all.stream().filter(r -> "PPE".equalsIgnoreCase(r.getType())).count());
+        stats.setToolCount(all.stream().filter(r -> "TOOL".equalsIgnoreCase(r.getType())).count());
+
+        stats.setOpenReports(all.stream().filter(r -> !"CLOSED".equalsIgnoreCase(r.getStatus())).count());
+        stats.setClosedReports(all.stream().filter(r -> "CLOSED".equalsIgnoreCase(r.getStatus())).count());
+        stats.setActionRequiredReports(all.stream().filter(r -> "ACTION_REQUIRED".equalsIgnoreCase(r.getStatus()) || "NEW".equalsIgnoreCase(r.getStatus())).count());
+
+        Map<String, Long> byType = new HashMap<>();
+        Map<String, Long> byDivision = new HashMap<>();
+        Map<String, Long> byStatus = new HashMap<>();
+        Map<String, Long> bySeverity = new HashMap<>();
+
+        for (Report r : all) {
+            byType.put(r.getType(), byType.getOrDefault(r.getType(), 0L) + 1);
+            byDivision.put(r.getDivision() != null ? r.getDivision() : "Central Zone", byDivision.getOrDefault(r.getDivision(), 0L) + 1);
+            byStatus.put(r.getStatus() != null ? r.getStatus() : "NEW", byStatus.getOrDefault(r.getStatus(), 0L) + 1);
+            bySeverity.put(r.getSeverity() != null ? r.getSeverity() : "MEDIUM", bySeverity.getOrDefault(r.getSeverity(), 0L) + 1);
+        }
+
+        stats.setReportsByType(byType);
+        stats.setReportsByDivision(byDivision);
+        stats.setReportsByStatus(byStatus);
+        stats.setReportsBySeverity(bySeverity);
+
+        return stats;
+    }
+
+    @Transactional
+    public Report updateReportStatusAndAction(Long reportId, CorrectiveActionRequest request) {
+        Optional<Report> reportOpt = reportRepository.findById(reportId);
+        if (reportOpt.isEmpty()) {
+            throw new IllegalArgumentException("Report not found with id: " + reportId);
+        }
+
+        Report report = reportOpt.get();
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            report.setStatus(request.getStatus().toUpperCase());
+        }
+        reportRepository.save(report);
+
+        CorrectiveAction action = correctiveActionRepository.findByReportId(reportId)
+                .orElse(new CorrectiveAction());
+
+        action.setReportId(reportId);
+        if (request.getRootCause() != null) action.setRootCause(request.getRootCause());
+        if (request.getCorrectiveAction() != null) action.setCorrectiveAction(request.getCorrectiveAction());
+        if (request.getPreventiveAction() != null) action.setPreventiveAction(request.getPreventiveAction());
+        if (request.getRemarks() != null) action.setRemarks(request.getRemarks());
+        action.setUpdatedBy(request.getUpdatedBy() != null ? request.getUpdatedBy() : "Admin Supervisor");
+        action.setUpdatedAt(LocalDateTime.now());
+
+        correctiveActionRepository.save(action);
+
+        return report;
+    }
+
+    public String getDefaultSafetyEmail() {
+        return systemSettingRepository.findById("DEFAULT_SAFETY_EMAIL")
+                .map(com.safety.backend.model.SystemSetting::getSettingValue)
+                .orElse("");
+    }
+
+    @Transactional
+    public String saveDefaultSafetyEmail(String email) {
+        String cleanEmail = email != null ? email.trim() : "";
+        com.safety.backend.model.SystemSetting setting = new com.safety.backend.model.SystemSetting("DEFAULT_SAFETY_EMAIL", cleanEmail);
+        systemSettingRepository.save(setting);
+        return cleanEmail;
+    }
+}

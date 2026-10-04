@@ -1,0 +1,50 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: qr-safety-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:safetydb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+      minimum-idle: 1
+      connection-timeout: 20000
+  jpa:
+    database-platform: ${SPRING_JPA_DATABASE_PLATFORM:org.hibernate.dialect.H2Dialect}
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    open-in-view: false
+    show-sql: false
+  h2:
+    console:
+      enabled: ${H2_CONSOLE_ENABLED:false}
+      path: /h2-console
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 25MB
+
+app:
+  admin:
+    pin: ${ADMIN_PIN:8888}
+    default-username: ${ADMIN_USERNAME:admin}
+    default-password: ${ADMIN_PASSWORD:admin123}
+    token-secret: ${ADMIN_TOKEN_SECRET:change-this-in-production}
+  email:
+    recipient: ${SAFETY_EMAIL_RECIPIENT:}
+    cc: ${SAFETY_EMAIL_CC:}
+
+# Optional SMTP configuration. If these are not provided, reports are still saved;
+# email notification is simply logged by EmailService.
+spring.mail:
+  host: ${MAIL_HOST:}
+  port: ${MAIL_PORT:587}
+  username: ${MAIL_USERNAME:}
+  password: ${MAIL_PASSWORD:}
+  properties:
+    mail.smtp.auth: ${MAIL_SMTP_AUTH:true}
+    mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:true}
