@@ -62,6 +62,7 @@ public class AdminController {
         return ResponseEntity.ok(updated);
     }
 
+
     @GetMapping("/settings/email")
     public ResponseEntity<String> getDefaultEmail(@RequestHeader(value = "X-Admin-Token", required = false) String token) {
         if (!adminTokenService.isValid(token)) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -74,4 +75,5 @@ public class AdminController {
         String updated = adminService.saveDefaultSafetyEmail(email);
         return ResponseEntity.ok(updated);
     }
+
 }

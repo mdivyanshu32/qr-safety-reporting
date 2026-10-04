@@ -9,7 +9,6 @@ import { IncidentReportForm } from './components/forms/IncidentReportForm';
 import { AccidentReportForm } from './components/forms/AccidentReportForm';
 import { VoiceAssistant } from './components/voice/VoiceAssistant';
 import { EmergencyDirectory } from './components/EmergencyDirectory';
-import { ToolChecklist } from './components/ToolChecklist';
 import { AdminLoginModal } from './components/admin/AdminLoginModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { SuccessTicket } from './components/SuccessTicket';
@@ -19,7 +18,6 @@ type ActiveView =
   | 'HOME'
   | 'VOICE'
   | 'EMERGENCY'
-  | 'TOOL_CHECKLIST'
   | 'FORM_TOOL'
   | 'FORM_PPE'
   | 'FORM_NEAR_MISS'
@@ -109,7 +107,6 @@ export function AppContent() {
         onAdminClick={handleAdminClick}
         onHomeClick={() => setCurrentView('HOME')}
         onEmergencyClick={() => setCurrentView('EMERGENCY')}
-        onChecklistClick={() => setCurrentView('TOOL_CHECKLIST')}
       />
 
       <main className="flex-1 relative">
@@ -118,15 +115,10 @@ export function AppContent() {
             onSelectType={handleSelectType}
             onVoiceStart={() => setCurrentView('VOICE')}
             onEmergencyClick={() => setCurrentView('EMERGENCY')}
-            onChecklistClick={() => setCurrentView('TOOL_CHECKLIST')}
           />
         )}
 
         {currentView === 'EMERGENCY' && <EmergencyDirectory adminToken={adminToken} />}
-
-        {currentView === 'TOOL_CHECKLIST' && (
-          <ToolChecklist onSubmit={handleSubmitReport} />
-        )}
 
         {currentView === 'VOICE' && (
           <VoiceAssistant

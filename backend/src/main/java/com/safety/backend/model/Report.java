@@ -75,9 +75,6 @@ public class Report {
     private Boolean injured;
     private Boolean workStopped;
 
-    @Column(length = 1000)
-    private String witnessDetails;
-
     // Accident Specific
     private Boolean injuryOccurred;
     private String bodyPart;
@@ -175,9 +172,6 @@ public class Report {
 
     public Boolean getWorkStopped() { return workStopped; }
     public void setWorkStopped(Boolean workStopped) { this.workStopped = workStopped; }
-
-    public String getWitnessDetails() { return witnessDetails; }
-    public void setWitnessDetails(String witnessDetails) { this.witnessDetails = witnessDetails; }
 
     public Boolean getInjuryOccurred() { return injuryOccurred; }
     public void setInjuryOccurred(Boolean injuryOccurred) { this.injuryOccurred = injuryOccurred; }

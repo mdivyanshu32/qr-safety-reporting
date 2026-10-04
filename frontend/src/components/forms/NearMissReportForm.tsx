@@ -3,7 +3,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import type { ReportSubmissionPayload } from '../../types/safety';
 import { CameraIdUploader } from './CameraIdUploader';
 import { EvidencePhotoPicker } from './EvidencePhotoPicker';
-import { AlertTriangle, ArrowLeft, Send, Forward, Mail } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Send, Forward } from 'lucide-react';
 
 interface NearMissReportFormProps {
   initialLocation?: string;
@@ -37,7 +37,6 @@ export const NearMissReportForm: React.FC<NearMissReportFormProps> = ({
     description: '',
     severity: 'HIGH',
     evidenceImages: [],
-    recipientEmail: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -138,20 +137,6 @@ export const NearMissReportForm: React.FC<NearMissReportFormProps> = ({
           </div>
         </div>
 
-        <div className="pt-2">
-          <label className="block text-xs font-bold text-amber-400 mb-1 flex items-center gap-1.5">
-            <Mail className="w-3.5 h-3.5 text-amber-400" />
-            <span>Notification Emails (comma/semicolon separated)</span>
-          </label>
-          <input
-            type="text"
-            placeholder="email1@company.com, email2@company.com"
-            required
-            value={formData.recipientEmail || ''}
-            onChange={(e) => setFormData({ ...formData, recipientEmail: e.target.value })}
-            className="w-full bg-slate-950 border border-amber-500/40 rounded-lg px-3 py-2 text-sm text-amber-300 font-medium focus:border-amber-400 focus:outline-none"
-          />
-        </div>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 space-y-4 shadow-lg">
@@ -216,6 +201,7 @@ export const NearMissReportForm: React.FC<NearMissReportFormProps> = ({
 
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 space-y-4 shadow-lg">
         <CameraIdUploader
+          required={false}
           value={formData.idCardImage}
           onChange={(base64) => setFormData({ ...formData, idCardImage: base64 })}
         />

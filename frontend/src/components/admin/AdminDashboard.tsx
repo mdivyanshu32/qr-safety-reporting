@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import type { ReportDetailsResponse, DashboardStats, ReportStatus } from '../../types/safety';
+import type { ReportDetailsResponse, DashboardStats, ReportStatus, ReportSubmissionPayload } from '../../types/safety';
 import { SubstationQrGenerator } from './SubstationQrGenerator';
+import { ToolChecklist } from '../ToolChecklist';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { ShieldAlert, Search, Eye, X, Mail, Save, CheckCircle } from 'lucide-react';
+import { ShieldAlert, Search, Eye, X, ClipboardCheck, Mail, CheckCircle } from 'lucide-react';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -12,15 +13,14 @@ interface AdminDashboardProps {
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, adminToken }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'settings' | 'qr'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'checklist' | 'settings' | 'qr'>('overview');
   
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [reports, setReports] = useState<ReportDetailsResponse[]>([]);
-  const [defaultEmail, setDefaultEmail] = useState<string>('');
-  const [savingEmail, setSavingEmail] = useState<boolean>(false);
   const adminHeaders = { 'X-Admin-Token': adminToken };
-
-  const [emailSavedSuccess, setEmailSavedSuccess] = useState<boolean>(false);
+  const [defaultEmail, setDefaultEmail] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailSavedSuccess, setEmailSavedSuccess] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -56,9 +56,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, adminT
       }
       if (emailRes.ok) {
         const emailData = await emailRes.text();
-        if (emailData && emailData.trim()) {
-          setDefaultEmail(emailData.trim());
-        }
+        setDefaultEmail(emailData.trim());
       }
     } catch (err) {
       console.error('Error fetching admin data:', err);
@@ -73,20 +71,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, adminT
     e.preventDefault();
     setSavingEmail(true);
     setEmailSavedSuccess(false);
-
     try {
       const res = await fetch(`${API_BASE}/api/admin/settings/email`, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain', ...adminHeaders },
         body: defaultEmail,
       });
-
-      if (res.ok) {
-        setEmailSavedSuccess(true);
-        setTimeout(() => setEmailSavedSuccess(false), 3000);
-      }
+      if (!res.ok) throw new Error(`Failed to save notification emails (HTTP ${res.status})`);
+      setDefaultEmail((await res.text()).trim());
+      setEmailSavedSuccess(true);
+      window.setTimeout(() => setEmailSavedSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to save default email:', err);
+      window.alert(err instanceof Error ? err.message : 'Unable to save notification emails.');
     } finally {
       setSavingEmail(false);
     }
@@ -130,6 +127,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, adminT
     }
   };
 
+  const handleChecklistSubmit = async (payload: ReportSubmissionPayload) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        let message = `Checklist submission failed (HTTP ${res.status})`;
+        try {
+          const body = await res.json();
+          if (body?.message) message = body.message;
+        } catch {
+          // Keep the HTTP error message when the response is not JSON.
+        }
+        throw new Error(message);
+      }
+
+      await fetchDashboardData();
+      setActiveTab('overview');
+      window.alert('Tool safety checklist submitted successfully.');
+    } catch (err) {
+      console.error('Checklist submission failed:', err);
+      window.alert(err instanceof Error ? err.message : 'Unable to submit checklist.');
+    }
+  };
+
   // Filter Reports
   const filteredReports = reports.filter((item) => {
     const r = item.report;
@@ -161,6 +186,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, adminT
     count,
   }));
 
+  const subdivisionMap: Record<string, {
+    division: string;
+    subdivision: string;
+    total: number;
+    nearMiss: number;
+    incident: number;
+    accident: number;
+    toolPpe: number;
+    open: number;
+    closed: number;
+    penalty: number;
+  }> = {};
+
+  const riskWeight: Record<string, number> = {
+    ACCIDENT: 25,
+    INCIDENT: 12,
+    NEAR_MISS: 6,
+    TOOL: 4,
+    PPE: 4,
+  };
+  const severityWeight: Record<string, number> = {
+    CRITICAL: 1.5,
+    HIGH: 1.25,
+    MEDIUM: 1,
+    LOW: 0.75,
+  };
+  const statusWeight: Record<string, number> = {
+    CLOSED: 0.4,
+    ACTION_TAKEN: 0.55,
+    UNDER_REVIEW: 0.8,
+    ACTION_REQUIRED: 1,
+    NEW: 1,
+  };
+
+  reports.forEach(({ report: r }) => {
+    const subdivision = (r.subdivision || 'Not Specified').trim() || 'Not Specified';
+    const division = (r.division || 'Not Specified').trim() || 'Not Specified';
+    const key = `${division}|||${subdivision}`;
+    if (!subdivisionMap[key]) {
+      subdivisionMap[key] = { division, subdivision, total: 0, nearMiss: 0, incident: 0, accident: 0, toolPpe: 0, open: 0, closed: 0, penalty: 0 };
+    }
+    const row = subdivisionMap[key];
+    row.total += 1;
+    if (r.type === 'NEAR_MISS') row.nearMiss += 1;
+    else if (r.type === 'INCIDENT') row.incident += 1;
+    else if (r.type === 'ACCIDENT') row.accident += 1;
+    else if (r.type === 'TOOL' || r.type === 'PPE') row.toolPpe += 1;
+
+    const status = r.status || 'NEW';
+    if (status === 'CLOSED') row.closed += 1;
+    else row.open += 1;
+
+    const base = riskWeight[r.type] || 4;
+    const severity = severityWeight[r.severity || 'MEDIUM'] || 1;
+    const statusFactor = statusWeight[status] || 1;
+    row.penalty += base * severity * statusFactor;
+  });
+
+  const subdivisionScorecards = Object.values(subdivisionMap)
+    .map((row) => ({ ...row, score: Math.max(0, Math.round(100 - Math.min(100, row.penalty))) }))
+    .sort((a, b) => a.score - b.score);
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
       {/* Admin Top Header */}
@@ -171,7 +258,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, adminT
           </div>
           <div>
             <h1 className="text-xl font-black text-white">SAFETY ADMIN PORTAL (PASSWORD PROTECTED)</h1>
-            <p className="text-xs text-slate-400">Live Incident Monitoring & Backend Notification Email Configuration</p>
+            <p className="text-xs text-slate-400">Live Safety Monitoring & Subdivision Scorecard</p>
           </div>
         </div>
 
@@ -195,11 +282,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, adminT
               Reports ({filteredReports.length})
             </button>
             <button
+              onClick={() => setActiveTab('checklist')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1 ${
+                activeTab === 'checklist' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              Tool Checklist
+            </button>
+            <button
               onClick={() => setActiveTab('settings')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1 ${
                 activeTab === 'settings' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
               }`}
             >
+              <Mail className="w-3.5 h-3.5" />
               Email Setup
             </button>
             <button
@@ -254,57 +351,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, adminT
         </div>
       </div>
 
-      {/* Settings Tab: Default Email Configuration */}
-      {activeTab === 'settings' && (
-        <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-6 shadow-xl space-y-5 max-w-2xl">
-          <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
-            <div className="p-3 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
-              <Mail className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-lg font-black text-white">Backend Default Safety Notification Email</h2>
-              <p className="text-xs text-slate-400">
-                Add one or more email addresses. Separate multiple addresses with commas, semicolons, or new lines.
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSaveDefaultEmail} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">
-                Safety Notification Emails *
-              </label>
-              <textarea
-                rows={3}
-                required
-                value={defaultEmail}
-                onChange={(e) => setDefaultEmail(e.target.value)}
-                placeholder="safety.head@company.com, manager@company.com\nhead@company.com"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-amber-300 font-bold focus:border-amber-400 focus:outline-none resize-y"
-              />
-            </div>
-
-            {emailSavedSuccess && (
-              <div className="p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 font-bold flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
-                <span>Notification emails updated. New reports will be sent to all listed addresses.</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={savingEmail}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all"
-            >
-              <Save className="w-4 h-4 stroke-[3]" />
-              <span>{savingEmail ? 'Saving...' : 'Save Notification Emails'}</span>
-            </button>
-          </form>
-        </div>
-      )}
-
       {/* Main Tab Views */}
       {activeTab === 'overview' && (
+        <>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
             <h3 className="text-sm font-extrabold text-white mb-4 uppercase tracking-wider">
@@ -342,6 +391,102 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, adminT
             </div>
           </div>
         </div>
+
+        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">Subdivision Safety Scorecard</h3>
+              <p className="text-[11px] text-slate-400 mt-1">Indicative score based on reported event type, severity and closure status. Higher score is better.</p>
+            </div>
+            <span className="text-[10px] font-bold text-amber-400 border border-amber-500/30 bg-amber-500/10 px-2 py-1 rounded-lg">SUBDIVISION-WISE</span>
+          </div>
+
+          {subdivisionScorecards.length === 0 ? (
+            <div className="text-sm text-slate-400 py-8 text-center border border-dashed border-slate-700 rounded-xl">No subdivision reports available yet.</div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950 text-slate-400 uppercase font-bold">
+                  <tr>
+                    <th className="p-3">Division</th>
+                    <th className="p-3">Subdivision</th>
+                    <th className="p-3">Total</th>
+                    <th className="p-3">Near Miss</th>
+                    <th className="p-3">Incident</th>
+                    <th className="p-3">Accident</th>
+                    <th className="p-3">Tool/PPE</th>
+                    <th className="p-3">Open</th>
+                    <th className="p-3">Score</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {subdivisionScorecards.map((row) => (
+                    <tr key={`${row.division}-${row.subdivision}`} className="hover:bg-slate-950/70">
+                      <td className="p-3 text-slate-300">{row.division}</td>
+                      <td className="p-3 font-bold text-white">{row.subdivision}</td>
+                      <td className="p-3 font-bold text-white">{row.total}</td>
+                      <td className="p-3 text-amber-300">{row.nearMiss}</td>
+                      <td className="p-3 text-orange-300">{row.incident}</td>
+                      <td className="p-3 text-rose-300">{row.accident}</td>
+                      <td className="p-3 text-cyan-300">{row.toolPpe}</td>
+                      <td className="p-3 text-amber-300">{row.open}</td>
+                      <td className="p-3">
+                        <span className={`inline-flex min-w-12 justify-center px-2 py-1 rounded-lg font-black ${
+                          row.score >= 80 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                          row.score >= 60 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                          'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        }`}>
+                          {row.score}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        </>
+      )}
+
+      {activeTab === 'settings' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl max-w-3xl mx-auto space-y-5">
+          <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+            <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-white">Email Setup</h2>
+              <p className="text-xs text-slate-400 mt-1">Configure the safety notification recipients used for new reports. This setting is available only to Admin.</p>
+            </div>
+          </div>
+          <form onSubmit={handleSaveDefaultEmail} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-amber-400 mb-2">Notification Emails (comma / semicolon separated)</label>
+              <textarea
+                value={defaultEmail}
+                onChange={(e) => setDefaultEmail(e.target.value)}
+                placeholder="email1@company.com, email2@company.com"
+                rows={4}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 focus:outline-none"
+              />
+              <p className="text-[11px] text-slate-500 mt-2">Multiple recipients can be separated by commas, semicolons, or new lines. Public report forms do not show an email field.</p>
+            </div>
+            {emailSavedSuccess && (
+              <div className="flex items-center gap-2 text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-xs font-bold">
+                <CheckCircle className="w-4 h-4" /> Notification email settings saved successfully.
+              </div>
+            )}
+            <button type="submit" disabled={savingEmail} className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-black px-5 py-2.5 rounded-xl">
+              <Mail className="w-4 h-4" />
+              {savingEmail ? 'Saving...' : 'Save Notification Emails'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {activeTab === 'checklist' && (
+        <ToolChecklist onSubmit={handleChecklistSubmit} />
       )}
 
       {(activeTab === 'reports' || activeTab === 'overview') && (

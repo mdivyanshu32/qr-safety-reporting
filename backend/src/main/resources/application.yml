@@ -38,8 +38,6 @@ app:
     recipient: ${SAFETY_EMAIL_RECIPIENT:}
     cc: ${SAFETY_EMAIL_CC:}
 
-# Optional SMTP configuration. If these are not provided, reports are still saved;
-# email notification is simply logged by EmailService.
 spring.mail:
   host: ${MAIL_HOST:}
   port: ${MAIL_PORT:587}

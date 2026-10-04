@@ -38,7 +38,6 @@ export interface SafetyReport {
   equipmentInvolved?: string;
   injured?: boolean;
   workStopped?: boolean;
-  witnessDetails?: string;
 
   // Accident
   injuryOccurred?: boolean;
@@ -74,7 +73,6 @@ export interface ReportSubmissionPayload {
   equipmentInvolved?: string;
   injured?: boolean;
   workStopped?: boolean;
-  witnessDetails?: string;
 
   injuryOccurred?: boolean;
   bodyPart?: string;
@@ -86,7 +84,6 @@ export interface ReportSubmissionPayload {
   evidenceImages?: string[]; // Base64 array
   rawVoiceTranscript?: string;
   structuredVoiceJson?: string;
-  recipientEmail?: string;
 }
 
 export interface CorrectiveAction {

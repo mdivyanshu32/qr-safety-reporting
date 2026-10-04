@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { Lock, MapPin, Zap, PhoneCall, CheckSquare } from 'lucide-react';
+import { Lock, MapPin, Zap, PhoneCall } from 'lucide-react';
 
 interface NavbarProps {
   currentLocation?: string;
@@ -8,7 +8,6 @@ interface NavbarProps {
   onAdminClick: () => void;
   onHomeClick: () => void;
   onEmergencyClick: () => void;
-  onChecklistClick: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -17,7 +16,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onAdminClick,
   onHomeClick,
   onEmergencyClick,
-  onChecklistClick,
 }) => {
   const { language, setLanguage, t } = useLanguage();
 
@@ -63,16 +61,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <PhoneCall className="w-3.5 h-3.5 text-red-400" />
             <span className="hidden sm:inline">Emergency</span>
-          </button>
-
-          {/* Tool Checklist Nav Button */}
-          <button
-            onClick={onChecklistClick}
-            className="flex items-center gap-1 bg-amber-950/60 hover:bg-amber-900/80 text-amber-400 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-amber-500/40 transition-colors"
-            title="Tool Checklist Upload"
-          >
-            <CheckSquare className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Checklist</span>
           </button>
 
           {/* India Flag Only Language Selector */}

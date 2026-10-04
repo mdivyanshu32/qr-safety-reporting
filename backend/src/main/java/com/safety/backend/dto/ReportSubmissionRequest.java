@@ -33,7 +33,6 @@ public class ReportSubmissionRequest {
     private String equipmentInvolved;
     private Boolean injured;
     private Boolean workStopped;
-    private String witnessDetails;
 
     // Accident Specific
     private Boolean injuryOccurred;
@@ -42,12 +41,11 @@ public class ReportSubmissionRequest {
     private Boolean firstAid;
     private Boolean hospitalRequired;
 
-    // Images & Voice & Email
+    // Images & Voice
     private String idCardImage; // Base64
     private List<String> evidenceImages; // List of Base64 strings
     private String rawVoiceTranscript;
     private String structuredVoiceJson;
-    private String recipientEmail;
 
     public ReportSubmissionRequest() {}
 
@@ -115,9 +113,6 @@ public class ReportSubmissionRequest {
     public Boolean getWorkStopped() { return workStopped; }
     public void setWorkStopped(Boolean workStopped) { this.workStopped = workStopped; }
 
-    public String getWitnessDetails() { return witnessDetails; }
-    public void setWitnessDetails(String witnessDetails) { this.witnessDetails = witnessDetails; }
-
     public Boolean getInjuryOccurred() { return injuryOccurred; }
     public void setInjuryOccurred(Boolean injuryOccurred) { this.injuryOccurred = injuryOccurred; }
 
@@ -144,7 +139,4 @@ public class ReportSubmissionRequest {
 
     public String getStructuredVoiceJson() { return structuredVoiceJson; }
     public void setStructuredVoiceJson(String structuredVoiceJson) { this.structuredVoiceJson = structuredVoiceJson; }
-
-    public String getRecipientEmail() { return recipientEmail; }
-    public void setRecipientEmail(String recipientEmail) { this.recipientEmail = recipientEmail; }
 }

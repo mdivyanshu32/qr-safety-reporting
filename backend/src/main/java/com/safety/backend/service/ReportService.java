@@ -22,8 +22,8 @@ public class ReportService {
     private final IdCardImageRepository idCardImageRepository;
     private final VoiceTranscriptRepository voiceTranscriptRepository;
     private final CorrectiveActionRepository correctiveActionRepository;
-    private final EmailService emailService;
     private final SystemSettingRepository systemSettingRepository;
+    private final EmailService emailService;
 
     @Autowired
     public ReportService(ReportRepository reportRepository,
@@ -31,15 +31,15 @@ public class ReportService {
                          IdCardImageRepository idCardImageRepository,
                          VoiceTranscriptRepository voiceTranscriptRepository,
                          CorrectiveActionRepository correctiveActionRepository,
-                         EmailService emailService,
-                         SystemSettingRepository systemSettingRepository) {
+                         SystemSettingRepository systemSettingRepository,
+                         EmailService emailService) {
         this.reportRepository = reportRepository;
         this.reportImageRepository = reportImageRepository;
         this.idCardImageRepository = idCardImageRepository;
         this.voiceTranscriptRepository = voiceTranscriptRepository;
         this.correctiveActionRepository = correctiveActionRepository;
-        this.emailService = emailService;
         this.systemSettingRepository = systemSettingRepository;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -74,7 +74,6 @@ public class ReportService {
         report.setEquipmentInvolved(request.getEquipmentInvolved());
         report.setInjured(request.getInjured());
         report.setWorkStopped(request.getWorkStopped());
-        report.setWitnessDetails(request.getWitnessDetails());
         report.setInjuryOccurred(request.getInjuryOccurred());
         report.setBodyPart(request.getBodyPart());
         report.setInjuryType(request.getInjuryType());
@@ -114,14 +113,12 @@ public class ReportService {
             voiceTranscriptRepository.save(vt);
         }
 
-        // Send Email Notification
+        // Notification recipients are configured only by Admin > Email Setup.
+        // The public report forms do not expose an email field.
         try {
-            String targetEmail = request.getRecipientEmail();
-            if (targetEmail == null || targetEmail.isBlank()) {
-                targetEmail = systemSettingRepository.findById("DEFAULT_SAFETY_EMAIL")
-                        .map(SystemSetting::getSettingValue)
-                        .orElse("");
-            }
+            String targetEmail = systemSettingRepository.findById("DEFAULT_SAFETY_EMAIL")
+                    .map(SystemSetting::getSettingValue)
+                    .orElse("");
             emailService.sendReportNotificationEmail(savedReport, targetEmail);
         } catch (Exception e) {
             System.err.println("WARN: Email notification trigger failed: " + e.getMessage());

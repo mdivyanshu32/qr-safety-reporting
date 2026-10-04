@@ -57,3 +57,10 @@ npm run dev
 ```
 
 If the frontend is on Vite and backend on port 8080, use `VITE_API_BASE_URL=http://localhost:8080`.
+
+
+## Final V6 changes
+- Admin Email Setup restored; public report forms still have no email field.
+- Witness name/details and recipientEmail removed from frontend/backend report DTOs and types.
+- Tool Safety Checklist no longer contains predefined checklist items; admins add items manually and can delete them.
+- Checklist submission requires at least one manually added item.

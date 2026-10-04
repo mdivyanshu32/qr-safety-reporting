@@ -5,9 +5,10 @@ import { Camera, RefreshCw, CheckCircle2 } from 'lucide-react';
 interface CameraIdUploaderProps {
   value?: string;
   onChange: (base64: string | undefined) => void;
+  required?: boolean;
 }
 
-export const CameraIdUploader: React.FC<CameraIdUploaderProps> = ({ value, onChange }) => {
+export const CameraIdUploader: React.FC<CameraIdUploaderProps> = ({ value, onChange, required = false }) => {
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -25,7 +26,7 @@ export const CameraIdUploader: React.FC<CameraIdUploaderProps> = ({ value, onCha
   return (
     <div className="space-y-2">
       <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-        {t('uploadIdCard')} <span className="text-slate-400 font-normal">(Optional / इच्छानुसार)</span>
+        {t('uploadIdCard')} <span className={required ? 'text-rose-400 font-bold' : 'text-slate-400 font-normal'}>({required ? 'अनिवार्य' : 'वैकल्पिक'})</span>
       </label>
 
       {value ? (

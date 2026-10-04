@@ -7,6 +7,7 @@ import com.safety.backend.dto.DashboardStatsDTO;
 import com.safety.backend.model.AdminUser;
 import com.safety.backend.model.CorrectiveAction;
 import com.safety.backend.model.Report;
+import com.safety.backend.model.SystemSetting;
 import com.safety.backend.repository.AdminUserRepository;
 import com.safety.backend.repository.CorrectiveActionRepository;
 import com.safety.backend.repository.ReportRepository;
@@ -140,6 +141,7 @@ public class AdminService {
         return report;
     }
 
+
     public String getDefaultSafetyEmail() {
         return systemSettingRepository.findById("DEFAULT_SAFETY_EMAIL")
                 .map(com.safety.backend.model.SystemSetting::getSettingValue)
@@ -149,8 +151,9 @@ public class AdminService {
     @Transactional
     public String saveDefaultSafetyEmail(String email) {
         String cleanEmail = email != null ? email.trim() : "";
-        com.safety.backend.model.SystemSetting setting = new com.safety.backend.model.SystemSetting("DEFAULT_SAFETY_EMAIL", cleanEmail);
+        SystemSetting setting = new SystemSetting("DEFAULT_SAFETY_EMAIL", cleanEmail);
         systemSettingRepository.save(setting);
         return cleanEmail;
     }
+
 }
